@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UrbanLens – Urban Heat Mitigation via AI/ML</title>
+<style>
+  :root {
+    --bg: #f8f9fa;
+    --surface: #ffffff;
+    --surface2: #f1f5f9;
+    --border: #e2e8f0;
+    --accent: #e05c1a;
+    --accent2: #1a6ee0;
+    --accent3: #16a34a;
+    --text: #1e293b;
+    --muted: #64748b;
+    --head-bg: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1a4731 100%);
+    --tag-heat: #fef3c7;
+    --tag-heat-t: #92400e;
+    --tag-iot: #dbeafe;
+    --tag-iot-t: #1e40af;
+    --tag-ml: #dcfce7;
+    --tag-ml-t: #166534;
+    --tag-geo: #fce7f3;
+    --tag-geo-t: #9d174d;
+    --code-bg: #1e293b;
+    --code-t: #94d82d;
+    font-size: 15px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --border: #475569;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.7; padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* Header */
+  .hero {
+    background: var(--head-bg);
+    color: #fff;
+    padding: 56px 40px 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .hero-label { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #94a3b8; margin-bottom: 12px; }
+  .hero h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; }
+  .hero h1 span { color: #fb923c; }
+  .hero-sub { font-size: 1.05rem; color: #cbd5e1; max-width: 680px; margin-bottom: 24px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .tag-heat { background: var(--tag-heat); color: var(--tag-heat-t); }
+  .tag-iot  { background: var(--tag-iot);  color: var(--tag-iot-t);  }
+  .tag-ml   { background: var(--tag-ml);   color: var(--tag-ml-t);   }
+  .tag-geo  { background: var(--tag-geo);  color: var(--tag-geo-t);  }
+  .tag-dark { background: rgba(255,255,255,0.15); color: #fff; }
+
+  /* Layout */
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+  .section { margin-bottom: 40px; }
+  h2 { font-size: 1.35rem; font-weight: 700; color: var(--text); border-left: 4px solid var(--accent); padding-left: 14px; margin-bottom: 18px; }
+  h3 { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 18px 0 10px; }
+  p { margin-bottom: 12px; color: var(--text); }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .card-sm { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .card-sm h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 6px; color: var(--accent); }
+  .card-icon { font-size: 1.4rem; margin-bottom: 8px; }
+
+  /* Phase timeline */
+  .phase { display: flex; gap: 18px; margin-bottom: 20px; align-items: flex-start; }
+  .phase-num { min-width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+  .phase-body { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
+  .phase-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+  .phase-dur { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: var(--surface); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 16px; }
+  th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  td { padding: 10px 14px; border-top: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: var(--surface2); }
+
+  /* Code block */
+  .code-block { background: var(--code-bg); color: var(--code-t); font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.8rem; padding: 16px 20px; border-radius: 10px; overflow-x: auto; margin: 12px 0; line-height: 1.6; }
+  .code-comment { color: #64748b; }
+
+  /* Chip list */
+  .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+
+  /* Alert box */
+  .alert { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 12px 0; font-size: 0.9rem; }
+  .alert.blue { background: #eff6ff; border-color: var(--accent2); }
+  .alert.green { background: #f0fdf4; border-color: var(--accent3); }
+
+  /* List */
+  ul, ol { padding-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 5px; font-size: 0.93rem; }
+
+  /* Arch diagram */
+  .arch { background: var(--code-bg); border-radius: 12px; padding: 24px; font-family: monospace; font-size: 0.78rem; color: #e2e8f0; overflow-x: auto; line-height: 1.8; }
+  .arch .hl { color: #fb923c; font-weight: bold; }
+  .arch .dim { color: #475569; }
+  .arch .grn { color: #4ade80; }
+  .arch .blu { color: #60a5fa; }
+  .arch .yel { color: #fde68a; }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 32px 0; }
+
+  /* Status pill */
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .pill-easy { background: #dcfce7; color: #166534; }
+  .pill-med  { background: #fef3c7; color: #92400e; }
+  .pill-hard { background: #fee2e2; color: #991b1b; }
+
+  /* Footer */
+  .footer { background: var(--surface2); border-top: 1px solid var(--border); padding: 20px 24px; text-align: center; font-size: 0.8rem; color: var(--muted); }
+
+  @media (max-width: 600px) {
+    .hero { padding: 36px 20px 32px; }
+    .hero h1 { font-size: 1.7rem; }
+    .container { padding: 20px 16px; }
+    .card-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-label">Final Year Major Project · B.Tech IT · SJCEM Mumbai</div>
+  <h1>Urban<span>Lens</span></h1>
+  <div class="hero-sub">Geospatial AI/ML system for urban heat stress detection, driver analysis, and physics-informed cooling intervention optimization — with IoT ground-truth integration.</div>
+  <div class="tags">
+    <span class="tag tag-heat">Urban Heat Islands</span>
+    <span class="tag tag-ml">PINN · U-Net · LSTM</span>
+    <span class="tag tag-iot">IoT Sensor Network</span>
+    <span class="tag tag-geo">Geospatial AI</span>
+    <span class="tag tag-dark">NSGA-II Optimizer</span>
+    <span class="tag tag-dark">Landsat 8 · Sentinel-2</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- OVERVIEW -->
+  <div class="section">
+    <h2>1. Project Overview</h2>
+    <div class="card">
+      <p>UrbanLens addresses a critical problem: <strong>Urban Heat Islands (UHIs)</strong> raise city temperatures 3–10°C above rural surroundings, increasing energy demand, mortality risk, and climate vulnerability. Standard monitoring relies on sparse weather stations and manual analysis — too slow and too coarse to guide policy.</p>
+      <p>This project builds an end-to-end AI/ML pipeline that fuses <strong>satellite imagery, ERA5 meteorological data, OpenStreetMap urban morphology,</strong> and <strong>real-time IoT sensor readings</strong> to (a) detect heat hotspots, (b) explain what's driving them, and (c) simulate which cooling interventions reduce heat stress most efficiently.</p>
+    </div>
+    <div class="card-grid">
+      <div class="card-sm">
+        <div class="card-icon">🛰️</div>
+        <h4>Data Fusion</h4>
+        <p style="font-size:0.85rem">Satellite LST + ERA5 weather + OSM morphology + live IoT sensors merged into a unified geospatial dataset.</p>
+      </div>
+      <div class="card-sm">
+        <div class="card-icon">🧠</div>
+        <h4>Physics-Informed ML</h4>
+        <p style="font-size:0.85rem">PINN encodes energy balance physics; U-Net generates spatial heat maps; Bi-LSTM forecasts temporal heat stress.</p>
+      </div>
+      <div class="card-sm">
+        <div class="card-icon">🌿</div>
+        <h4>Intervention Optimizer</h4>
+        <p style="font-size:0.85rem">NSGA-II multi-objective optimizer selects best cooling interventions per zone (green roofs, trees, albedo changes, water bodies).</p>
+      </div>
+      <div class="card-sm">
+        <div class="card-icon">📡</div>
+        <h4>IoT Integration</h4>
+        <p style="font-size:0.85rem">ESP32 + DHT22/DS18B20 nodes collect ground-truth temperature and humidity for model calibration and bias correction.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SYSTEM ARCHITECTURE -->
+  <div class="section">
+    <h2>2. System Architecture</h2>
+    <div class="arch">
+<span class="dim">┌─────────────────────────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>                        <span class="hl">UrbanLens Pipeline</span>                              <span class="dim">│</span>
+<span class="dim">├──────────────┬──────────────┬──────────────┬───────────────────────────┤</span>
+<span class="dim">│</span>  <span class="yel">LAYER 1</span>      <span class="dim">│</span>  <span class="yel">LAYER 2</span>      <span class="dim">│</span>  <span class="yel">LAYER 3</span>      <span class="dim">│</span>       <span class="yel">LAYER 4</span>               <span class="dim">│</span>
+<span class="dim">│</span>  <span class="grn">Data Ingest</span>  <span class="dim">│</span>  <span class="grn">Processing</span>   <span class="dim">│</span>  <span class="grn">AI/ML Core</span>  <span class="dim">│</span>  <span class="grn">Outputs & Dashboard</span>      <span class="dim">│</span>
+<span class="dim">├──────────────┼──────────────┼──────────────┼───────────────────────────┤</span>
+<span class="dim">│</span> Landsat 8    <span class="dim">│</span> LST Extract  <span class="dim">│</span> <span class="blu">PINN</span>         <span class="dim">│</span> Heat Stress Map           <span class="dim">│</span>
+<span class="dim">│</span> Sentinel-2   <span class="dim">│</span> NDVI/NDBI    <span class="dim">│</span> <span class="blu">U-Net CNN</span>    <span class="dim">│</span> Driver Importance Map     <span class="dim">│</span>
+<span class="dim">│</span> ERA5 Met     <span class="dim">│</span> LULC Segment <span class="dim">│</span> <span class="blu">Bi-LSTM</span>      <span class="dim">│</span> 48h Heat Forecast         <span class="dim">│</span>
+<span class="dim">│</span> OSM / GHSL   <span class="dim">│</span> Morpho Feat. <span class="dim">│</span> <span class="blu">NSGA-II</span>      <span class="dim">│</span> Intervention Scenarios    <span class="dim">│</span>
+<span class="dim">│</span> <span class="hl">IoT Sensors</span>  <span class="dim">│</span> MQTT Broker  <span class="dim">│</span> <span class="blu">SHAP XAI</span>    <span class="dim">│</span> Streamlit Web Dashboard   <span class="dim">│</span>
+<span class="dim">│</span> (ESP32+DHT22)<span class="dim">│</span> Bias Correct <span class="dim">│</span>              <span class="dim">│</span> PDF/GeoTIFF Export        <span class="dim">│</span>
+<span class="dim">└──────────────┴──────────────┴──────────────┴───────────────────────────┘</span>
+    </div>
+  </div>
+
+  <!-- MODULE BREAKDOWN -->
+  <div class="section">
+    <h2>3. Module Breakdown</h2>
+
+    <h3>Module 1 — Data Collection & IoT Layer</h3>
+    <div class="card">
+      <p><strong>Satellite Data (Free, no sign-up cost):</strong></p>
+      <ul>
+        <li><strong>Landsat 8 Band 10</strong> → Land Surface Temperature (LST) via USGS EarthExplorer or Google Earth Engine (GEE)</li>
+        <li><strong>Sentinel-2 RGB + NIR</strong> → LULC segmentation, NDVI, NDBI via Copernicus Open Access Hub</li>
+        <li><strong>ERA5</strong> → Air temp, humidity, wind — download via CDS API (free Python library)</li>
+        <li><strong>OpenStreetMap</strong> → Buildings, roads, green spaces via <code>osmnx</code> Python library</li>
+      </ul>
+      <p style="margin-top:12px"><strong>IoT Hardware (₹200–500 budget — single proof-of-concept node):</strong></p>
+      <table>
+        <thead><tr><th>Component</th><th>Purpose</th><th>Approx. Cost</th><th>Where to Buy</th></tr></thead>
+        <tbody>
+          <tr><td>ESP32 Dev Board (×1)</td><td>Microcontroller + WiFi</td><td>₹180–250</td><td>Robu.in / local</td></tr>
+          <tr><td>DHT11 Sensor</td><td>Air temp + humidity (±2°C)</td><td>₹40–60</td><td>Robu.in / local</td></tr>
+          <tr><td>LDR Module</td><td>Solar irradiance proxy</td><td>₹20–30</td><td>Any electronics shop</td></tr>
+          <tr><td>Jumper wires + breadboard</td><td>Connections (no soldering)</td><td>₹40–60</td><td>Any electronics shop</td></tr>
+          <tr><td><strong>Total</strong></td><td></td><td><strong>~₹280–400</strong></td><td></td></tr>
+        </tbody>
+      </table>
+      <div class="alert">
+        <strong>Budget reality:</strong> ₹200–500 = 1 ESP32 node only. DHT11 replaces DHT22 (cheaper; ±2°C accuracy is acceptable for a demo). No Raspberry Pi — run MQTT broker (Mosquitto) free on your laptop. Frame this as a "single proof-of-concept node demonstrating real-time ground-truth integration" — that's honest and sufficient for evaluation.
+      </div>
+      <div class="alert blue">
+        <strong>Simple Setup:</strong> Flash ESP32 with MicroPython. Node reads sensors every 5 min → publishes to HiveMQ cloud free tier (no local broker needed). Python subscriber on your PC logs to CSV/SQLite and feeds the dashboard.
+      </div>
+      <div class="code-block"><span class="code-comment"># ESP32 MicroPython — sensor publish (simplified)</span>
+import dht, machine, network, time
+from umqtt.simple import MQTTClient
+
+sensor = dht.DHT11(machine.Pin(4))
+
+def publish():
+    sensor.measure()
+    temp = sensor.temperature()
+    hum  = sensor.humidity()
+    client.publish(b"urbanlens/node1", f"{temp},{hum}")
+
+<span class="code-comment"># Runs every 5 minutes</span>
+while True:
+    publish()
+    time.sleep(300)
+      </div>
+    </div>
+
+    <h3>Module 2 — Geospatial Preprocessing</h3>
+    <div class="card">
+      <p>All data sources are reprojected to a common CRS (EPSG:4326), clipped to the study area (e.g., Mumbai city bounds), and resampled to a uniform 30m grid using <code>rasterio</code> and <code>geopandas</code>.</p>
+      <div class="chip-list">
+        <span class="chip">rasterio</span>
+        <span class="chip">geopandas</span>
+        <span class="chip">osmnx</span>
+        <span class="chip">shapely</span>
+        <span class="chip">earthengine-api</span>
+        <span class="chip">xarray</span>
+        <span class="chip">numpy</span>
+      </div>
+      <p><strong>Feature Engineering:</strong></p>
+      <ul>
+        <li><strong>LST</strong> — from Landsat Band 10 using emissivity correction</li>
+        <li><strong>NDVI</strong> = (NIR − Red) / (NIR + Red) → vegetation density</li>
+        <li><strong>NDBI</strong> = (SWIR − NIR) / (SWIR + NIR) → built-up intensity</li>
+        <li><strong>MNDWI</strong> → water body extent</li>
+        <li><strong>Sky View Factor (SVF)</strong> — from DSM using <code>WhiteboxTools</code> or approximated from OSM building heights</li>
+        <li><strong>Impervious Surface %</strong> — from LULC segmentation</li>
+        <li><strong>ERA5 bias-corrected with IoT readings</strong> using linear regression delta correction</li>
+      </ul>
+    </div>
+
+    <h3>Module 3 — AI/ML Core</h3>
+    <div class="card">
+      <h4 style="color:var(--accent);margin-bottom:8px">3a. U-Net CNN — Heat Stress Map Generation</h4>
+      <p>U-Net takes a multi-channel raster stack (LST, NDVI, NDBI, MNDWI, SVF, building density, ERA5 vars) as input and outputs a pixel-wise heat stress classification map (Low / Moderate / High / Extreme).</p>
+      <ul>
+        <li>Input: <strong>H × W × 9 feature stack</strong> (patch-based: 64×64 tiles)</li>
+        <li>Output: Segmentation mask (4-class heat stress zone)</li>
+        <li>Training: 80/20 split; labels from historical LST thresholds</li>
+        <li>Loss: Categorical cross-entropy + Dice loss</li>
+      </ul>
+      <div class="alert green"><strong>Why U-Net?</strong> It's the standard architecture for remote sensing segmentation, has pre-built PyTorch implementations, and handles small training sets well with skip connections.</div>
+
+      <h4 style="color:var(--accent);margin-bottom:8px;margin-top:16px">3b. Physics-Informed Neural Network (PINN)</h4>
+      <p>Standard ML ignores physical constraints — PINNs embed the <strong>Urban Energy Balance equation</strong> directly into the loss function:</p>
+      <div class="code-block"><span class="code-comment"># PINN Loss = Data Loss + Physics Residual Loss</span>
+<span class="code-comment"># Energy Balance: Rn = H + LE + G</span>
+<span class="code-comment"># Rn = net radiation, H = sensible heat, LE = latent heat, G = soil heat flux</span>
+
+def physics_loss(pred_H, pred_LE, pred_G, Rn):
+    residual = pred_H + pred_LE + pred_G - Rn
+    return torch.mean(residual ** 2)   <span class="code-comment"># penalizes energy imbalance</span>
+
+total_loss = data_loss + lambda_phys * physics_loss(...)
+      </div>
+      <p>This ensures predictions don't violate physical laws — critical for credibility in a competition/college submission.</p>
+
+      <h4 style="color:var(--accent);margin-bottom:8px;margin-top:16px">3c. Bidirectional LSTM — Temporal Heat Forecasting</h4>
+      <p>Uses 30-day historical sequences of LST + ERA5 variables per grid cell to forecast heat stress for the next 48 hours. Bi-LSTM captures both forward (trend) and backward (seasonal) temporal patterns.</p>
+      <ul>
+        <li>Input sequence: <code>[T-30d ... T] → (30, 7 features)</code></li>
+        <li>Output: Heat stress index for T+6h, T+12h, T+24h, T+48h</li>
+      </ul>
+
+      <h4 style="color:var(--accent);margin-bottom:8px;margin-top:16px">3d. SHAP — Driver Analysis (XAI)</h4>
+      <p>SHAP (SHapley Additive exPlanations) quantifies which features most influence heat stress predictions in each zone. This directly fulfills the <em>"Quantify drivers of urban heating"</em> objective with interpretable outputs.</p>
+      <div class="code-block">import shap
+explainer = shap.DeepExplainer(unet_model, background_data)
+shap_values = explainer.shap_values(test_tiles)
+shap.summary_plot(shap_values, feature_names=['LST','NDVI','NDBI','SVF','Wind','Humidity','Albedo','LULC','IoT_Temp'])
+      </div>
+    </div>
+
+    <h3>Module 4 — Cooling Intervention Optimizer</h3>
+    <div class="card">
+      <p>Using NSGA-II (multi-objective genetic algorithm from <code>pymoo</code>), the optimizer finds the best combination of interventions per heat zone, balancing:</p>
+      <ul>
+        <li>🎯 <strong>Minimize:</strong> Estimated post-intervention LST (°C)</li>
+        <li>💰 <strong>Minimize:</strong> Implementation cost (normalized)</li>
+        <li>🌱 <strong>Maximize:</strong> Co-benefit score (biodiversity, stormwater, aesthetics)</li>
+      </ul>
+      <table>
+        <thead><tr><th>Intervention</th><th>Modeled Effect</th><th>Applicable Zone</th></tr></thead>
+        <tbody>
+          <tr><td>Urban tree canopy (+10%)</td><td>−1.2 to −2.5°C LST</td><td>High-density residential</td></tr>
+          <tr><td>Cool/white roofs (albedo 0.6)</td><td>−1.5 to −3.0°C roof LST</td><td>Commercial/industrial</td></tr>
+          <tr><td>Green roofs (sedum)</td><td>−0.8 to −1.8°C</td><td>Flat-roof buildings</td></tr>
+          <tr><td>Permeable pavements</td><td>−0.5 to −1.0°C</td><td>Roads/parking</td></tr>
+          <tr><td>Water bodies / blue-green</td><td>−1.0 to −2.0°C</td><td>Open/park zones</td></tr>
+        </tbody>
+      </table>
+      <div class="code-block"><span class="code-comment"># NSGA-II setup with pymoo</span>
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.core.problem import Problem
+
+class HeatMitigationProblem(Problem):
+    def _evaluate(self, X, out, *args, **kwargs):
+        <span class="code-comment"># X = intervention mix per zone (continuous 0–1)</span>
+        delta_LST = compute_lst_reduction(X)
+        cost      = compute_cost(X)
+        out["F"]  = np.column_stack([-delta_LST, cost])  <span class="code-comment"># minimize both</span>
+      </div>
+    </div>
+
+    <h3>Module 5 — Dashboard (Streamlit)</h3>
+    <div class="card">
+      <p>A simple interactive web app to present results to evaluators without needing GIS software.</p>
+      <ul>
+        <li>📍 <strong>Folium map</strong> — overlays heat stress zones (color-coded) on city basemap</li>
+        <li>📊 <strong>SHAP bar charts</strong> — driver importance per selected zone</li>
+        <li>🌿 <strong>Scenario panel</strong> — pick interventions, see predicted ΔT in real time</li>
+        <li>📡 <strong>IoT live feed</strong> — shows sensor readings updating every 5 min</li>
+        <li>📥 <strong>Export</strong> — download GeoTIFF heat maps + PDF report</li>
+      </ul>
+      <div class="code-block">streamlit run app.py
+<span class="code-comment"># Hosted locally or deployed on Streamlit Community Cloud (free)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TECH STACK -->
+  <div class="section">
+    <h2>4. Technology Stack</h2>
+    <div class="card-grid">
+      <div class="card-sm">
+        <h4>Data & Geospatial</h4>
+        <div class="chip-list">
+          <span class="chip">Google Earth Engine</span>
+          <span class="chip">rasterio</span>
+          <span class="chip">geopandas</span>
+          <span class="chip">osmnx</span>
+          <span class="chip">xarray</span>
+          <span class="chip">GDAL</span>
+          <span class="chip">cdsapi (ERA5)</span>
+        </div>
+      </div>
+      <div class="card-sm">
+        <h4>AI / ML</h4>
+        <div class="chip-list">
+          <span class="chip">PyTorch</span>
+          <span class="chip">segmentation_models_pytorch</span>
+          <span class="chip">scikit-learn</span>
+          <span class="chip">shap</span>
+          <span class="chip">pymoo (NSGA-II)</span>
+          <span class="chip">deepxde (PINN)</span>
+        </div>
+      </div>
+      <div class="card-sm">
+        <h4>IoT & Networking</h4>
+        <div class="chip-list">
+          <span class="chip">MicroPython (ESP32)</span>
+          <span class="chip">MQTT (Mosquitto)</span>
+          <span class="chip">paho-mqtt</span>
+          <span class="chip">SQLite</span>
+          <span class="chip">HiveMQ Cloud</span>
+        </div>
+      </div>
+      <div class="card-sm">
+        <h4>Visualization & Deployment</h4>
+        <div class="chip-list">
+          <span class="chip">Streamlit</span>
+          <span class="chip">Folium</span>
+          <span class="chip">Plotly</span>
+          <span class="chip">Matplotlib</span>
+          <span class="chip">ReportLab (PDF)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUILD PHASES -->
+  <div class="section">
+    <h2>5. Implementation Phases (12 Weeks)</h2>
+
+    <div class="phase">
+      <div class="phase-num">1</div>
+      <div class="phase-body">
+        <div class="phase-title">Data Collection & IoT Setup</div>
+        <div class="phase-dur">Weeks 1–2 · <span class="pill pill-easy">Easy</span></div>
+        <ul>
+          <li>Register on Google Earth Engine (student account, free)</li>
+          <li>Download Landsat 8, Sentinel-2 scenes for study area (Mumbai / chosen city)</li>
+          <li>Set up CDS API for ERA5 download (free, one-time registration)</li>
+          <li>Flash ESP32 nodes with MicroPython, test DHT22 readings</li>
+          <li>Set up MQTT broker (Mosquitto on laptop or HiveMQ free cloud)</li>
+          <li>Collect 1 week of IoT sensor data to validate setup</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-num">2</div>
+      <div class="phase-body">
+        <div class="phase-title">Geospatial Feature Engineering</div>
+        <div class="phase-dur">Weeks 3–4 · <span class="pill pill-easy">Easy–Medium</span></div>
+        <ul>
+          <li>Extract LST from Landsat Band 10 using emissivity correction</li>
+          <li>Compute NDVI, NDBI, MNDWI from Sentinel-2</li>
+          <li>Fetch OSM building footprints using <code>osmnx</code>, compute building density and height</li>
+          <li>Reproject and co-register all layers to 30m grid using rasterio</li>
+          <li>Perform bias correction of ERA5 temperature using IoT ground-truth delta correction</li>
+          <li>Stack all features into numpy arrays → save as GeoTIFF</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-num">3</div>
+      <div class="phase-body">
+        <div class="phase-title">U-Net Heat Stress Map Training</div>
+        <div class="phase-dur">Weeks 5–6 · <span class="pill pill-med">Medium</span></div>
+        <ul>
+          <li>Label heat stress classes using percentile thresholds on historical LST</li>
+          <li>Patch the raster stack into 64×64 tiles; augment (flip, rotate)</li>
+          <li>Use <code>segmentation_models_pytorch</code> pre-built U-Net with ResNet34 encoder</li>
+          <li>Train on Google Colab (free T4 GPU) — typically converges in ~50 epochs</li>
+          <li>Evaluate with IoU / Dice score</li>
+          <li>Reconstruct full-city heat stress map from predictions</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-num">4</div>
+      <div class="phase-body">
+        <div class="phase-title">PINN Energy Balance Model</div>
+        <div class="phase-dur">Weeks 7–8 · <span class="pill pill-med">Medium</span></div>
+        <ul>
+          <li>Use <code>deepxde</code> or vanilla PyTorch PINN implementation</li>
+          <li>Define energy balance PDE as custom loss term</li>
+          <li>Train on pixel-wise feature data to predict sensible heat flux (H)</li>
+          <li>Compare PINN vs plain regression — show physics reduces out-of-distribution error</li>
+          <li>Use ERA5 net radiation estimates as Rn ground truth</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-num">5</div>
+      <div class="phase-body">
+        <div class="phase-title">Bi-LSTM Forecast + SHAP Analysis</div>
+        <div class="phase-dur">Week 9 · <span class="pill pill-easy">Easy</span></div>
+        <ul>
+          <li>Prepare time-series dataset from multi-temporal LST + ERA5 sequences</li>
+          <li>Train Bi-LSTM in PyTorch — standard sequence-to-sequence setup</li>
+          <li>Evaluate RMSE on held-out dates</li>
+          <li>Run SHAP on trained U-Net / gradient boosting baseline to rank drivers</li>
+          <li>Generate bar charts of feature importance per heat zone</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-num">6</div>
+      <div class="phase-body">
+        <div class="phase-title">Intervention Optimizer + Dashboard</div>
+        <div class="phase-dur">Weeks 10–11 · <span class="pill pill-med">Medium</span></div>
+        <ul>
+          <li>Define intervention effectiveness from literature (parameterized)</li>
+          <li>Implement NSGA-II problem in <code>pymoo</code> — takes ~1 hour to code</li>
+          <li>Run optimization for each heat zone; generate Pareto front of tradeoffs</li>
+          <li>Build Streamlit dashboard: folium map, SHAP charts, scenario panel, IoT live feed</li>
+          <li>Deploy on Streamlit Community Cloud (free)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-num">7</div>
+      <div class="phase-body">
+        <div class="phase-title">Testing, Report & Presentation</div>
+        <div class="phase-dur">Week 12 · <span class="pill pill-easy">Easy</span></div>
+        <ul>
+          <li>Validate predictions against held-out IoT sensor readings</li>
+          <li>Document all results with maps, tables, and metrics</li>
+          <li>Prepare project report following college format</li>
+          <li>Demo: live IoT → MQTT → dashboard flow for evaluators</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOLDER STRUCTURE -->
+  <div class="section">
+    <h2>6. Repository Structure</h2>
+    <div class="code-block">urbanlens/
+├── <span class="code-comment"># Data collection</span>
+├── data/
+│   ├── raw/           <span class="code-comment"># Downloaded GeoTIFFs (Landsat, Sentinel-2, ERA5)</span>
+│   ├── processed/     <span class="code-comment"># Co-registered, feature-engineered layers</span>
+│   └── iot/           <span class="code-comment"># Sensor readings (CSV / SQLite)</span>
+│
+├── iot/
+│   ├── esp32_firmware.py    <span class="code-comment"># MicroPython sketch</span>
+│   └── mqtt_subscriber.py  <span class="code-comment"># Python MQTT listener + DB writer</span>
+│
+├── notebooks/
+│   ├── 01_data_collection.ipynb
+│   ├── 02_feature_engineering.ipynb
+│   ├── 03_unet_training.ipynb
+│   ├── 04_pinn_model.ipynb
+│   ├── 05_lstm_forecast.ipynb
+│   ├── 06_shap_analysis.ipynb
+│   └── 07_intervention_optimizer.ipynb
+│
+├── models/
+│   ├── unet/          <span class="code-comment"># Saved weights</span>
+│   ├── pinn/
+│   └── lstm/
+│
+├── app/
+│   ├── app.py         <span class="code-comment"># Streamlit dashboard</span>
+│   └── utils.py
+│
+└── requirements.txt
+    </div>
+  </div>
+
+  <!-- DATASETS -->
+  <div class="section">
+    <h2>7. Datasets & Access</h2>
+    <table>
+      <thead><tr><th>Dataset</th><th>Source</th><th>Access</th><th>Free?</th></tr></thead>
+      <tbody>
+        <tr><td>Landsat 8 LST</td><td>USGS / Google Earth Engine</td><td>GEE Python API or EarthExplorer</td><td>✅ Yes</td></tr>
+        <tr><td>Sentinel-2 LULC</td><td>Copernicus / GEE</td><td>GEE or Open Access Hub</td><td>✅ Yes</td></tr>
+        <tr><td>ERA5 Meteorological</td><td>ECMWF / CDS</td><td><code>cdsapi</code> Python library</td><td>✅ Yes</td></tr>
+        <tr><td>OpenStreetMap</td><td>OpenStreetMap</td><td><code>osmnx</code> Python library</td><td>✅ Yes</td></tr>
+        <tr><td>GHSL Urban Form</td><td>EC Joint Research Centre</td><td>Direct download (GeoTIFF)</td><td>✅ Yes</td></tr>
+        <tr><td>IoT Ground Truth</td><td>Your own ESP32 nodes</td><td>MQTT → local CSV</td><td>✅ Yes</td></tr>
+      </tbody>
+    </table>
+    <div class="alert">
+      <strong>GEE Tip:</strong> Apply for a Google Earth Engine non-commercial/student account at <code>earthengine.google.com</code>. Approval takes 1–3 days. All satellite data is free and preprocessed.
+    </div>
+  </div>
+
+  <!-- KEY METRICS -->
+  <div class="section">
+    <h2>8. Evaluation Metrics</h2>
+    <div class="card-grid">
+      <div class="card-sm">
+        <h4>Heat Map Accuracy</h4>
+        <ul style="font-size:0.82rem">
+          <li>U-Net IoU score per class</li>
+          <li>LST RMSE (°C) vs IoT ground truth</li>
+          <li>Overall classification accuracy</li>
+        </ul>
+      </div>
+      <div class="card-sm">
+        <h4>PINN Physics Residual</h4>
+        <ul style="font-size:0.82rem">
+          <li>Energy balance residual (W/m²)</li>
+          <li>Comparison to non-physics baseline</li>
+          <li>Generalization to unseen dates</li>
+        </ul>
+      </div>
+      <div class="card-sm">
+        <h4>Forecast Quality</h4>
+        <ul style="font-size:0.82rem">
+          <li>LSTM RMSE and MAE (°C)</li>
+          <li>48h forecast skill score</li>
+          <li>Bias vs ERA5 reference</li>
+        </ul>
+      </div>
+      <div class="card-sm">
+        <h4>Intervention Optimizer</h4>
+        <ul style="font-size:0.82rem">
+          <li>Max ΔT reduction achievable (°C)</li>
+          <li>Pareto front diversity</li>
+          <li>Spatial coverage per budget tier</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- IoT INTEGRATION DETAIL -->
+  <div class="section">
+    <h2>9. IoT Integration Detail</h2>
+    <div class="card">
+      <p>The IoT component serves two purposes: (1) fulfills the college hardware requirement, and (2) provides real-world ground-truth to validate and bias-correct satellite-derived LST estimates.</p>
+      <h3>Deployment Plan (Single Node — ₹280–400 budget)</h3>
+      <ul>
+        <li><strong>Node placement:</strong> Place in the most heat-stressed zone identified by the U-Net map (e.g., dense concrete/road area near college) — this makes the IoT reading directly relevant to your hotspot findings</li>
+        <li><strong>Data logged:</strong> Air temperature (°C), relative humidity (%), light intensity (LDR proxy for solar load)</li>
+        <li><strong>Communication:</strong> ESP32 → WiFi → HiveMQ cloud MQTT (free) → Python subscriber → SQLite on your laptop</li>
+        <li><strong>Use in pipeline:</strong> Single-point ground-truth comparison against nearest ERA5 grid cell and satellite LST pixel — frame as "point validation" not spatial interpolation (honest given 1 node)</li>
+        <li><strong>Report framing:</strong> "A single IoT node was deployed as a proof-of-concept to demonstrate real-time ground-truth integration. A scaled deployment of 5–10 nodes is recommended for production use."</li>
+      </ul>
+      <div class="alert green">
+        <strong>For demo day:</strong> Show evaluators the live Streamlit panel with IoT readings updating in real-time. This is the most impressive visual and requires no extra code beyond the MQTT subscriber already in the pipeline.
+      </div>
+    </div>
+  </div>
+
+  <!-- DELIVERABLES -->
+  <div class="section">
+    <h2>10. Project Deliverables</h2>
+    <table>
+      <thead><tr><th>Deliverable</th><th>Format</th><th>Competition Objective Covered</th></tr></thead>
+      <tbody>
+        <tr><td>Heat Stress Maps (multi-date)</td><td>GeoTIFF + Folium web map</td><td>Identify Urban Heat Hotspots</td></tr>
+        <tr><td>SHAP Driver Importance Report</td><td>PDF + interactive charts</td><td>Analyze Drivers of Urban Heating</td></tr>
+        <tr><td>PINN + U-Net Validation Metrics</td><td>Jupyter notebook + tables</td><td>Model Heat Dynamics using AIML</td></tr>
+        <tr><td>Scenario Intervention Report</td><td>PDF + optimizer Pareto plot</td><td>Generate & Optimize Cooling Scenarios</td></tr>
+        <tr><td>Streamlit Dashboard</td><td>Web app (hosted)</td><td>All objectives</td></tr>
+        <tr><td>IoT Sensor Dataset</td><td>CSV + SQLite</td><td>College hardware requirement</td></tr>
+        <tr><td>GitHub Repository</td><td>Public repo</td><td>Reproducibility</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- TIPS -->
+  <div class="section">
+    <h2>Shortcuts & Simplifications</h2>
+    <div class="card">
+      <ul>
+        <li>🔧 Use <code>segmentation_models_pytorch</code> — one line to get a pretrained U-Net, no architecture coding from scratch</li>
+        <li>🌍 Use GEE's built-in LST product instead of computing from raw bands manually (saves a week)</li>
+        <li>⚡ For PINN, start with <code>deepxde</code> library — it handles the physics loss boilerplate</li>
+        <li>📊 For SHAP, run it on a <strong>gradient boosted model</strong> (XGBoost) first as baseline — much faster to train than U-Net and still valid for feature importance</li>
+        <li>🗺️ Restrict study area to a single district (e.g., Andheri or Kurla in Mumbai) — easier to collect IoT data there too</li>
+        <li>💸 Total hardware budget: ~₹280–400 for 1 ESP32 + DHT11 + LDR node (single proof-of-concept)</li>
+        <li>☁️ All compute on Google Colab free tier is sufficient — no paid GPU needed</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  UrbanLens · Final Year Major Project · B.Tech IT · SJCEM, University of Mumbai · 2026–2027
+</div>
+
+</body>
+</html>
