@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion'
 
 const STAGES = [
-  { title: 'Data Ingest', desc: 'Landsat, Sentinel-2, ERA5, OSM, IoT' },
-  { title: 'Processing', desc: 'Indices, morphology, 30 m grid' },
-  { title: 'AI / ML Core', desc: 'Classifier, PINN, forecast, SHAP' },
-  { title: 'Outputs', desc: 'Maps, scenarios, exports, live feed' },
+  { title: 'Satellite ingest', desc: 'Landsat 8 LST · Sentinel-2 · ERA5 · OSM · IoT' },
+  { title: 'EO processing', desc: 'NDVI/NDBI/MNDWI · morphology · 30 m grid' },
+  { title: 'AI / ML core', desc: 'Heat classifier · PINN · forecast · SHAP' },
+  { title: 'Mission outputs', desc: 'Street hotspots · scenarios · live feed · exports' },
 ]
 
 export function PipelineFlow() {

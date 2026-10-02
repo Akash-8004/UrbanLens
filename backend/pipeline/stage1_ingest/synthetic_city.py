@@ -1,12 +1,12 @@
-"""Seeded Mumbai synthetic city — 10-channel stack + vectors + timeseries."""
+"""Seeded Western Line synthetic city — Churchgate → Palghar corridor."""
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta
 
 import numpy as np
 
 from app.config import settings
+from app.core.hotspots import WESTERN_LINE_SPOTS
 
 
 def _blur(a, sigma=2):
@@ -19,23 +19,13 @@ def _blur(a, sigma=2):
     tmp = np.apply_along_axis(lambda r: np.convolve(r, g, mode="valid"), 1, ap)
     return np.apply_along_axis(lambda r: np.convolve(r, g, mode="valid"), 0, tmp)
 
-ZONES = [
-    ("andheri_e", "Andheri East", 0.55, 0.45),
-    ("andheri_w", "Andheri West", 0.35, 0.42),
-    ("bandra", "Bandra", 0.42, 0.38),
-    ("santacruz", "Santacruz", 0.48, 0.35),
-    ("powai", "Powai", 0.62, 0.55),
-    ("goregaon", "Goregaon", 0.52, 0.58),
-    ("dadar", "Dadar", 0.58, 0.32),
-    ("mahim", "Mahim", 0.50, 0.30),
-    ("sion", "Sion", 0.65, 0.28),
-    ("wadala", "Wadala", 0.68, 0.35),
-    ("chembur", "Chembur", 0.72, 0.42),
-    ("kurla", "Kurla", 0.70, 0.48),
-]
 
-COAST_LON = np.array([72.78, 72.82, 72.86, 72.90, 72.94, 72.98, 73.00])
-COAST_LAT = np.array([19.05, 19.02, 18.98, 18.94, 18.92, 18.91, 18.90])
+# Absolute lon/lat stations (fractional unused — kept for tuple shape compatibility)
+ZONES = [(s["zone_id"], s["name"], s["lon"], s["lat"]) for s in WESTERN_LINE_SPOTS]
+
+# West-facing Arabian Sea coastline control points (south → north toward Palghar)
+COAST_LON = np.array([72.70, 72.75, 72.78, 72.80, 72.82, 72.84, 72.86, 72.88, 72.90])
+COAST_LAT = np.array([19.85, 19.70, 19.55, 19.40, 19.25, 19.10, 18.98, 18.92, 18.88])
 
 
 def _noise(h, w, seed, octaves=4):
@@ -46,7 +36,6 @@ def _noise(h, w, seed, octaves=4):
         s = 2**k
         sh, sw = max(2, h // s), max(2, w // s)
         up = _blur(rng.standard_normal((sh, sw)), sigma=1.5)
-        # nearest upsample without ragged repeat broadcasting
         yi = np.clip((yy * sh / h).astype(int), 0, sh - 1)
         xi = np.clip((xx * sw / w).astype(int), 0, sw - 1)
         acc += up[yi, xi] / (k + 1)
@@ -59,16 +48,24 @@ def _land_mask(lons, lats):
     mask = np.ones(lons.shape, dtype=bool)
     for j in range(lons.shape[1]):
         lat_coast = np.interp(lons[0, j], COAST_LON, COAST_LAT)
-        mask[:, j] = lats[:, j] >= lat_coast - 0.002
+        # west of coastline ≈ sea for this parametric curve
+        mask[:, j] = lons[:, j] >= (COAST_LON[0] + 0.02)  # coarse land east of coast strip
+        # refine: points west of interpolated coast lon at that lat are water
+    # Better: for each cell, coast_lon at this lat
+    coast_at_lat = np.interp(lats, COAST_LAT[::-1], COAST_LON[::-1])
+    mask = lons >= coast_at_lat - 0.01
     return mask
 
 
 def _zone_id(lons, lats):
+    """Nearest Western Line station assignment."""
     zmap = np.zeros(lons.shape, dtype=int)
-    for zi, (_, _, cx, cy) in enumerate(ZONES):
-        d = (lons - (settings.BBOX_MIN_LON + cx * (settings.BBOX_MAX_LON - settings.BBOX_MIN_LON))) ** 2
-        d += (lats - (settings.BBOX_MIN_LAT + cy * (settings.BBOX_MAX_LAT - settings.BBOX_MIN_LAT))) ** 2
-        zmap = np.where(d < 0.0025, zi, zmap)
+    best = np.full(lons.shape, np.inf)
+    for zi, (_, _, lon_c, lat_c) in enumerate(ZONES):
+        d = (lons - lon_c) ** 2 + (lats - lat_c) ** 2
+        nearer = d < best
+        zmap = np.where(nearer, zi, zmap)
+        best = np.where(nearer, d, best)
     return zmap
 
 
@@ -78,10 +75,13 @@ def generate_city(seed: int | None = None) -> dict:
     lons, lats, _ = __import__("app.core.grid", fromlist=["grid_coords"]).grid_coords(h, w)
     land = _land_mask(lons, lats)
     urban = _noise(h, w, seed)
-    corridor = np.exp(-((lons - 72.88) ** 2 / 0.002 + (lats - 19.08) ** 2 / 0.003))
-    urban = np.clip(0.35 * urban + 0.65 * corridor, 0, 1)
+    # Western Line spine ~ lon 72.82–72.86, lat 18.9–19.85
+    corridor = np.exp(-((lons - 72.84) ** 2 / 0.0018 + ((lats - 19.25) / 0.55) ** 2 / 0.35))
+    # denser south (island city) + Mira-Bhayandar / Vasai pockets
+    south = np.exp(-((lats - 19.05) ** 2 / 0.015))
+    urban = np.clip(0.25 * urban + 0.55 * corridor + 0.25 * south * corridor, 0, 1)
     parks = _blur(_noise(h, w, seed + 1), 8)
-    parks = (parks > 0.72).astype(float) * 0.85
+    parks = (parks > 0.74).astype(float) * 0.85
     water = (~land).astype(float)
     ndvi = np.clip(0.15 + 0.55 * parks - 0.35 * urban, -0.2, 0.85)
     ndvi[water > 0.5] = 0.05
@@ -132,12 +132,12 @@ def _buildings_geojson(lons, lats, urban, height, land, seed):
     rng = np.random.default_rng(seed + 99)
     feats = []
     h, w = urban.shape
-    for _ in range(min(800, int(urban.sum() * 80))):
+    for _ in range(min(900, int(urban.sum() * 60))):
         i, j = rng.integers(0, h), rng.integers(0, w)
         if urban[i, j] < 0.45 or not land[i, j]:
             continue
         lon, lat = float(lons[i, j]), float(lats[i, j])
-        d = 0.0008 * (0.5 + urban[i, j])
+        d = 0.0007 * (0.5 + urban[i, j])
         feats.append({
             "type": "Feature",
             "properties": {"mean_height_m": float(height[i, j])},
@@ -149,33 +149,35 @@ def _buildings_geojson(lons, lats, urban, height, land, seed):
 
 
 def _roads_geojson():
-    feats = []
-    for a, b in [(0, 6), (6, 11), (1, 2), (2, 7), (11, 10), (4, 5)]:
-        _, na, cxa, cya = ZONES[a]
-        _, nb, cxb, cyb = ZONES[b]
-        lon_a = settings.BBOX_MIN_LON + cxa * (settings.BBOX_MAX_LON - settings.BBOX_MIN_LON)
-        lat_a = settings.BBOX_MIN_LAT + cya * (settings.BBOX_MAX_LAT - settings.BBOX_MIN_LAT)
-        lon_b = settings.BBOX_MIN_LON + cxb * (settings.BBOX_MAX_LON - settings.BBOX_MIN_LON)
-        lat_b = settings.BBOX_MIN_LAT + cyb * (settings.BBOX_MAX_LAT - settings.BBOX_MIN_LAT)
-        feats.append({"type": "Feature", "properties": {}, "geometry": {"type": "LineString", "coordinates": [[lon_a, lat_a], [lon_b, lat_b]]}})
-    return {"type": "FeatureCollection", "features": feats}
+    # Polyline along western stations south→north
+    coords = [[s["lon"], s["lat"]] for s in WESTERN_LINE_SPOTS if s["zone_id"] not in ("kurla", "powai", "chembur", "andheri_e")]
+    return {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "properties": {"name": "Western Line"},
+            "geometry": {"type": "LineString", "coordinates": coords},
+        }],
+    }
 
 
 def _zones_geojson(lons, lats, zmap):
     feats = []
-    for zi, (zid, name, _, _) in enumerate(ZONES):
+    for zi, (zid, name, lon_c, lat_c) in enumerate(ZONES):
         mask = zmap == zi
-        if not mask.any():
-            continue
-        lon_c, lat_c = float(lons[mask].mean()), float(lats[mask].mean())
-        lon_min, lon_max = float(lons[mask].min()), float(lons[mask].max())
-        lat_min, lat_max = float(lats[mask].min()), float(lats[mask].max())
+        if mask.any():
+            lon_m, lat_m = float(lons[mask].mean()), float(lats[mask].mean())
+            area = float(mask.sum()) * 0.0009
+        else:
+            lon_m, lat_m, area = float(lon_c), float(lat_c), 1.0
+        pad = 0.02
         feats.append({
             "type": "Feature",
             "id": zid,
-            "properties": {"name": name, "centroid": [lon_c, lat_c], "area_km2": float(mask.sum()) * 0.0009},
+            "properties": {"name": name, "centroid": [lon_m, lat_m], "area_km2": area},
             "geometry": {"type": "Polygon", "coordinates": [[
-                [lon_min, lat_min], [lon_max, lat_min], [lon_max, lat_max], [lon_min, lat_max], [lon_min, lat_min],
+                [lon_m - pad, lat_m - pad], [lon_m + pad, lat_m - pad],
+                [lon_m + pad, lat_m + pad], [lon_m - pad, lat_m + pad], [lon_m - pad, lat_m - pad],
             ]]},
         })
     return {"type": "FeatureCollection", "features": feats}
@@ -194,7 +196,7 @@ def _timeseries(seed):
             dt = t0 + timedelta(hours=h)
             hour = dt.hour
             diurnal = 4 * np.sin((hour - 14) * np.pi / 12)
-            hw = 3.5 if 360 <= h < 432 else 0.0  # heat wave days 15-18
+            hw = 3.5 if 360 <= h < 432 else 0.0
             prev = 0.85 * prev + 0.15 * (base + diurnal + hw) + rng.normal(0, 0.3)
             series.append({
                 "ts": dt.isoformat(), "lst": prev, "humidity": 70 - 0.8 * (prev - 30),

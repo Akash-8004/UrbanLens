@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.config import settings
 from app.core.io_artifacts import read_json
+from app.core.hotspots import build_hotspot_layers
 
 router = APIRouter(prefix="/heatmap", tags=["heatmap"])
 LAYERS = ("heat_stress", "lst", "ndvi", "ndbi", "svf", "impervious", "drivers")
@@ -19,12 +20,37 @@ def get_heatmap(layer: str = "heat_stress"):
     buildings = None
     try:
         import json
-        from app.config import settings
         bp = settings.ARTIFACTS_DIR / "buildings.geojson"
         if bp.exists():
             buildings = json.loads(bp.read_text(encoding="utf-8"))
     except Exception:
         buildings = None
+
+    zones_fc = read_json("zones")
+    try:
+        zone_summary = read_json("zone_summary")
+    except FileNotFoundError:
+        zone_summary = {}
+    try:
+        drivers_z = read_json("drivers_zones")
+        insights = drivers_z.get("insights") or {}
+        for zid, insight in insights.items():
+            if zid in zone_summary:
+                zone_summary[zid]["insight"] = insight
+            # also attach top drivers if missing
+            ranked = (drivers_z.get("zones") or {}).get(zid) or []
+            if zid in zone_summary and not zone_summary[zid].get("top_drivers"):
+                zone_summary[zid]["top_drivers"] = [d["feature"] for d in ranked[:3]]
+    except FileNotFoundError:
+        pass
+
+    hotspots, hotspots_geojson = build_hotspot_layers(
+        data.get("hotspots", []),
+        zones_fc,
+        zone_summary,
+        data.get("stats") or {},
+    )
+
     return {
         "image_png_b64": layers[key],
         "width": data["width"],
@@ -34,9 +60,12 @@ def get_heatmap(layer: str = "heat_stress"):
         "classes": data.get("classes"),
         "legend": data.get("legend"),
         "stats": data.get("stats", {}),
-        "hotspots": data.get("hotspots", []),
+        "hotspots": hotspots,
+        "hotspots_geojson": hotspots_geojson,
         "buildings_geojson": buildings,
         "iot_node": {"lat": 19.07, "lon": 72.88, "node_id": "node1"},
+        "study_label": "Mumbai · Andheri–Kurla corridor",
+        "nation_center": [78.96, 22.5],
     }
 
 

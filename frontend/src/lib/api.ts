@@ -71,12 +71,21 @@ export interface Hotspot {
   id: string
   name: string
   class: number
+  class_label?: string
+  color?: string
   lat: number
   lon: number
   area_km2: number
   peak_lst: number
+  mean_lst?: number
+  radius_km?: number
+  radius_m?: number
+  locality?: string
+  road?: string
   top_drivers?: string[]
   zone_id?: string
+  insight?: string
+  population_proxy?: number
 }
 
 export interface HeatmapResponse {
@@ -88,8 +97,10 @@ export interface HeatmapResponse {
   legend?: { value: number; color: string; label?: string }[]
   stats?: { min: number; max: number; mean: number }
   hotspots?: Hotspot[]
+  hotspots_geojson?: GeoJSON.FeatureCollection
   buildings_geojson?: GeoJSON.FeatureCollection
   iot_node?: { lat: number; lon: number; node_id: string }
+  study_label?: string
 }
 
 export interface DriverFeature {

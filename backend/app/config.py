@@ -10,12 +10,13 @@ class Settings(BaseSettings):
 
     DEMO_MODE: bool = True
     SEED: int = 42
-    BBOX_MIN_LAT: float = 18.90
-    BBOX_MAX_LAT: float = 19.20
-    BBOX_MIN_LON: float = 72.78
-    BBOX_MAX_LON: float = 73.00
-    GRID_H: int = 120
-    GRID_W: int = 120
+    # Western Line corridor: south Mumbai → Palghar / Boisar
+    BBOX_MIN_LAT: float = 18.88
+    BBOX_MAX_LAT: float = 19.85
+    BBOX_MIN_LON: float = 72.70
+    BBOX_MAX_LON: float = 73.02
+    GRID_H: int = 140
+    GRID_W: int = 100
     ARTIFACTS_DIR: Path = ROOT / ".artifacts"
     DATA_DIR: Path = PROJECT_ROOT / "data"
     IOT_DB_PATH: Path = PROJECT_ROOT / "data" / "iot" / "readings.db"

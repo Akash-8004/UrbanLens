@@ -49,3 +49,15 @@
 .maplibregl-ctrl-group button {
   @apply !bg-panel !border-border;
 }
+
+/* Hotspot hover popup */
+.ul-hotspot-popup .maplibregl-popup-content {
+  background: rgba(13, 18, 32, 0.94) !important;
+  border: 1px solid rgba(30, 41, 59, 0.9);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 24px rgba(239, 68, 68, 0.12);
+}
+.ul-hotspot-popup .maplibregl-popup-tip {
+  border-top-color: rgba(13, 18, 32, 0.94) !important;
+}

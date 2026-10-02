@@ -13,7 +13,7 @@ export function HeroBand() {
           animate={{ opacity: 1 }}
           className="text-[10px] uppercase tracking-[0.22em] text-text-muted"
         >
-          SJCEM · B.Tech IT · Final Year Major Project
+          SJCEM · B.Tech IT · Final Year Major Project · EO + AI
         </motion.p>
         <motion.h2
           initial={{ opacity: 0, y: 14 }}
@@ -29,8 +29,9 @@ export function HeroBand() {
           transition={{ delay: 0.12 }}
           className="mt-4 max-w-2xl text-sm leading-relaxed text-text-muted md:text-base"
         >
-          UrbanLens fuses land-surface temperature, urban morphology, and live IoT ground truth to locate hotspots,
-          explain drivers with SHAP, forecast heat stress, and optimize cooling interventions for Mumbai.
+          UrbanLens detects urban heat islands from Landsat 8 thermal and Sentinel-2 optical imagery, fuses ERA5
+          meteorology and urban morphology, then explains drivers with SHAP and optimizes cooling interventions — with
+          live IoT ground truth along Mumbai&apos;s Western Line to Palghar.
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -39,11 +40,26 @@ export function HeroBand() {
           className="mt-7 flex flex-wrap gap-3"
         >
           <Link to="/heatmap">
-            <GradientButton className="shadow-glow-amber">Explore Heat Map</GradientButton>
+            <GradientButton className="shadow-glow-amber">Explore satellite heat map</GradientButton>
           </Link>
           <Link to="/optimizer">
-            <GradientButton variant="ghost">Run Scenario</GradientButton>
+            <GradientButton variant="ghost">Run scenario</GradientButton>
           </Link>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.28 }}
+          className="mt-6 flex flex-wrap gap-2"
+        >
+          {['Landsat 8 TIRS', 'Sentinel-2 MSI', 'ERA5 / CDS', 'OSM morphology', '30 m grid'].map((t) => (
+            <span
+              key={t}
+              className="rounded-full border border-border/80 bg-bg/50 px-2.5 py-1 font-mono text-[10px] text-text-muted"
+            >
+              {t}
+            </span>
+          ))}
         </motion.div>
       </div>
     </section>
