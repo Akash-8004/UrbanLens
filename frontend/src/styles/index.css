@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply min-h-screen bg-bg text-text font-sans;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(6, 182, 212, 0.08), transparent),
+      radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.05), transparent);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .dot-grid {
+    background-image: radial-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  .glass {
+    @apply border border-border/60 bg-panel/80 backdrop-blur-md;
+  }
+}
+
+.maplibregl-map {
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.maplibregl-ctrl-attrib {
+  @apply !text-[9px] !bg-bg/70 !text-text-muted backdrop-blur;
+}
+.maplibregl-ctrl-group {
+  @apply !bg-panel !border-border !shadow-glow;
+}
+.maplibregl-ctrl-group button {
+  @apply !bg-panel !border-border;
+}
