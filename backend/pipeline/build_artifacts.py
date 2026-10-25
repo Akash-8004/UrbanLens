@@ -13,6 +13,7 @@ import pandas as pd
 from PIL import Image
 
 from app.config import settings
+from app.core.grid import cell_area_km2
 from app.core.io_artifacts import write_json
 from app.core.logging import log
 from pipeline.stage1_ingest.registry import load_city_data
@@ -51,10 +52,11 @@ def _b64_png(rgba):
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-def _hotspots(classes, lst, lons, lats, zone_defs, zmap, top=8):
+def _hotspots(classes, lst, lons, lats, zone_defs, zmap, land, top=8):
+    cell_km2 = cell_area_km2()
     ranked = []
     for zi, (zid, name, _, _) in enumerate(zone_defs):
-        mask = zmap == zi
+        mask = (zmap == zi) & land
         if not mask.any():
             continue
         peak = float(np.nanmax(lst[mask]))
@@ -70,7 +72,7 @@ def _hotspots(classes, lst, lons, lats, zone_defs, zmap, top=8):
         spots.append({
             "id": f"hs_{k}", "name": name, "class": cls, "zone_id": zid,
             "lat": float(lats[i, j]), "lon": float(lons[i, j]),
-            "area_km2": float(mask.sum()) * 0.0009, "peak_lst": peak, "top_drivers": [],
+            "area_km2": float(mask.sum()) * cell_km2, "peak_lst": peak, "top_drivers": [],
         })
     return spots
 
@@ -98,18 +100,25 @@ def main(source: str | None = None):
     zone_summary = {}
     zone_stats = {}
     zmap = city["zone_map"]
+    land = city["land_mask"]
+    cell_km2 = cell_area_km2()
     for zi, (zid, name, _, _) in enumerate(city["zone_defs"]):
-        m = zmap == zi
+        # Land cells only — sea cells carry NaN and would otherwise inflate areas
+        # and drag zone means toward meaningless values.
+        m = (zmap == zi) & land
         if not m.any():
+            log.warning("Zone %s has no land cells — skipped", zid)
             continue
         zlst = lst[m]
         zcls = classes[m]
-        area_km2 = float(m.sum()) * 0.0009
+        area_km2 = float(m.sum()) * cell_km2
         zone_summary[zid] = {
             "name": name, "mean_lst": float(np.nanmean(zlst)), "max_lst": float(np.nanmax(zlst)),
             "area_km2": area_km2,
-            "class_area_km2": {CLASS_NAMES[c]: float((zcls == c).sum()) * 0.0009 for c in range(4)},
-            "population_proxy": int(area_km2 * 15000),
+            "class_area_km2": {CLASS_NAMES[c]: float((zcls == c).sum()) * cell_km2 for c in range(4)},
+            # Density scales with impervious share, so rural talukas are not credited
+            # with city-core population the way a flat per-km² figure did.
+            "population_proxy": int(area_km2 * (1800 + 200 * float(np.nanmean(ch["impervious"][m])))),
             "dominant_lulc": "built-up" if float(np.nanmean(ch["ndbi"][m])) > 0.2 else "mixed",
             "top_drivers": [d["feature"] for d in shap_m["zones"].get(zid, [])[:3]],
             "insight": shap_m["insights"].get(zid, ""),
@@ -130,7 +139,7 @@ def main(source: str | None = None):
         "classes": CLASS_NAMES,
         "legend": [{"class": i, "name": CLASS_NAMES[i], "color": c} for i, c in enumerate(["#3B82F6", "#22D3EE", "#F59E0B", "#EF4444"])],
         "stats": {"min": float(np.nanmin(lst)), "max": float(np.nanmax(lst)), "mean": float(np.nanmean(lst))},
-        "hotspots": _hotspots(classes, lst, lons, lats, city["zone_defs"], zmap),
+        "hotspots": _hotspots(classes, lst, lons, lats, city["zone_defs"], zmap, land),
         "layers": layers,
         "confusion_matrix": heat["confusion_matrix"],
         "classifier_metrics": heat["metrics"],

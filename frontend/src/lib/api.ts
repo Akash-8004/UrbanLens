@@ -185,6 +185,16 @@ export interface IotReading {
   rssi?: number
   status?: string
   mode?: string
+  source?: string
+  sensor?: string
+}
+
+export interface IotStatusResponse {
+  live: boolean
+  readings_received: number
+  first_reading_ts?: string | null
+  last_reading_ts?: string | null
+  mode?: string
 }
 
 export interface IotHistoryResponse {
@@ -239,6 +249,7 @@ export const api = {
     return request<IotHistoryResponse>(`/api/iot/history?${q}`)
   },
   iotValidation: () => request<IotValidationResponse>('/api/iot/validation'),
+  iotStatus: () => request<IotStatusResponse>('/api/iot/status'),
   pinnMetrics: () => request<PinnMetricsResponse>('/api/pinn/metrics'),
   exportReportPdf: () =>
     fetch(`${BASE}/api/export/report.pdf`, { method: 'POST' }).then((r) => {

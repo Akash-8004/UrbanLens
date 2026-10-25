@@ -50,11 +50,13 @@ class MLP:
 def _build_dataset(city, n=6000, seed=42):
     rng = np.random.default_rng(seed)
     ch = city["channels"]
-    ndvi = np.nan_to_num(ch["ndvi"], 0).ravel()
-    rn = np.nan_to_num(ch["net_radiation"], 0).ravel()
-    imperv = np.nan_to_num(ch["impervious"], 0).ravel()
-    svf = np.nan_to_num(ch["svf"], 0).ravel()
-    lst = np.nan_to_num(ch["lst"], 0).ravel()
+    # nan= must be passed by keyword: the second positional arg is `copy`, and
+    # passing 0 there rewrote the shared city grid in place, zeroing sea cells.
+    ndvi = np.nan_to_num(ch["ndvi"], nan=0.0).ravel()
+    rn = np.nan_to_num(ch["net_radiation"], nan=0.0).ravel()
+    imperv = np.nan_to_num(ch["impervious"], nan=0.0).ravel()
+    svf = np.nan_to_num(ch["svf"], nan=0.0).ravel()
+    lst = np.nan_to_num(ch["lst"], nan=0.0).ravel()
     land = city["land_mask"].ravel()
     idx = np.where(land)[0]
     idx = rng.choice(idx, min(n, len(idx)), replace=False)

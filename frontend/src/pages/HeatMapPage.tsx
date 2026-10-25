@@ -14,6 +14,9 @@ import { ZonePopup } from '../components/map/ZonePopup'
 import { useAppStore } from '../store/appStore'
 import { useSelectionStore } from '../store/selectionStore'
 
+const LIST_LIMIT = 24
+const MAX_PER_LOCALITY = 2
+
 export default function HeatMapPage() {
   const layer = useSelectionStore((s) => s.heatLayer)
   const pinned = useSelectionStore((s) => s.pinnedLayer)
@@ -80,6 +83,22 @@ export default function HeatMapPage() {
 
   const hotspots = data?.hotspots ?? []
 
+  // Rank city-wide but cap each locality, so the panel reads as a corridor-wide
+  // ranking instead of ten consecutive "Andheri East" rows.
+  const ranked = (() => {
+    const perLocality = new Map<string, number>()
+    const picked: Hotspot[] = []
+    for (const h of hotspots.slice().sort((a, b) => b.peak_lst - a.peak_lst)) {
+      const key = h.locality ?? h.zone_id ?? h.name
+      const seen = perLocality.get(key) ?? 0
+      if (seen >= MAX_PER_LOCALITY) continue
+      perLocality.set(key, seen + 1)
+      picked.push(h)
+      if (picked.length >= LIST_LIMIT) break
+    }
+    return picked
+  })()
+
   return (
     <PageShell fullBleed className="relative flex h-[calc(100vh-3.5rem)] flex-col lg:flex-row">
       <div className="absolute left-4 top-4 z-10 space-y-2">
@@ -105,14 +124,11 @@ export default function HeatMapPage() {
       <div className="absolute right-4 top-4 z-10 max-h-[55vh] w-72 overflow-auto rounded-xl glass p-3 shadow-glow">
         <p className="mb-1 text-[10px] uppercase tracking-wider text-text-muted">Street-level detections</p>
         <p className="mb-2 text-[9px] text-text-faint">
-          Top hotspots · click zooms to exact coords · {hotspots.length} total
+          Hottest {MAX_PER_LOCALITY} per locality · click zooms to exact coords · {hotspots.length} detected
         </p>
         {error && <p className="text-xs text-thermal-ext">{error}</p>}
         {!data && !error && <Skeleton className="h-32" />}
-        {hotspots
-          .slice()
-          .sort((a, b) => b.peak_lst - a.peak_lst)
-          .slice(0, 24)
+        {ranked
           .map((h, i) => {
             const cls = HEAT_CLASSES[h.class]
             return (

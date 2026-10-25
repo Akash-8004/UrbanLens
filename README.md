@@ -92,7 +92,7 @@ Settings come from `.env` in the repo root (see [backend/app/config.py](backend/
 |---|---|---|
 | `DEMO_MODE` | `true` | Use the synthetic city (currently always used) |
 | `SEED` | `42` | Seed for the synthetic city; same seed gives the same city |
-| `GRID_H` / `GRID_W` | `140` / `100` | Raster grid size (~30 m cells) |
+| `GRID_H` / `GRID_W` | `140` / `100` | Raster grid size (~340 × 770 m cells over this bbox) |
 | `BBOX_MIN_LAT` … `BBOX_MAX_LON` | `18.88, 19.85, 72.70, 73.02` | Study area bounding box |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `MQTT_HOST` / `MQTT_PORT` | `localhost` / `1883` | Broker for the optional MQTT ingest |
@@ -107,14 +107,14 @@ This table shows what is real and what is simulated.
 
 | Layer | What runs | Status |
 |---|---|---|
-| Data | Seeded synthetic Mumbai corridor (140×100, ~30 m) | **Synthetic / demo** |
+| Data | Seeded synthetic Mumbai corridor (140×100 grid, ~2900 km² land) | **Synthetic / demo** |
 | Heat map | `HistGradientBoostingClassifier` (4 classes from LST percentiles) | Real sklearn model |
 | U-Net / Bi-LSTM | Optional `torch` extras | Stubbed if torch is absent |
 | PINN | Pure-NumPy MLP + energy-balance residual | Real ablation metrics |
 | SHAP | `TreeExplainer` on the classifier | Real attributions |
 | Forecast | Lag-feature regressor with prediction-interval bands | Real sklearn model |
 | Optimizer | pymoo NSGA-II, knee-point plans | Real multi-objective optimisation |
-| IoT | ESP32 simulator → SSE stream (MQTT optional) | Simulated by default |
+| IoT | Real ESP32 + DHT11 via USB serial or WiFi → SSE stream | **Real hardware**, simulator fallback |
 | Satellite adapters | Landsat / Sentinel-2 / ERA5 / OSM modules | Stubs; fall back to synthetic |
 
 The API tags every synthetic source in its provenance data, and the UI labels it **SYNTHETIC / DEMO DATA**.
@@ -177,7 +177,7 @@ All routes have the `/api` prefix. Full schemas are at `/docs`.
 | Forecast | `GET /forecast`, `/forecast/citywide` |
 | PINN | `GET /pinn/metrics` |
 | Interventions | `GET /interventions/catalogue`, `POST /interventions/optimize`, `GET /interventions/plan` |
-| IoT | `GET /iot/latest`, `/iot/history`, `/iot/validation`, `/iot/stream` (SSE) |
+| IoT | `GET /iot/latest`, `/iot/history`, `/iot/validation`, `/iot/status`, `/iot/stream` (SSE), `POST /iot/ingest` |
 | Export | `POST /export/report.pdf`, `GET /export/heatmap.geojson`, `/export/heatmap.geotiff`, `/export/summary.csv` |
 
 ---
@@ -204,6 +204,7 @@ All routes have the `/api` prefix. Full schemas are at `/docs`.
 | Build artifacts | `make artifacts` | `python scripts/seed_demo.py` |
 | Run API | `make dev` | `python scripts/dev.py` |
 | Run tests | `make test` | `cd backend && python -m pytest tests -q` |
+| Stream real sensor | `make bridge` | `cd backend; python -m iot.serial_bridge` |
 | Clear artifacts | `make reset` | delete `backend/.artifacts/` |
 | Production UI build | — | `cd frontend && npm run build` |
 
@@ -222,6 +223,7 @@ All routes have the `/api` prefix. Full schemas are at `/docs`.
 
 ## Further docs
 
+- [HARDWARE_DEMO.md](HARDWARE_DEMO.md): wiring, flashing and live-demo runbook for the ESP32 + DHT11 node
 - [DEMO_SCRIPT.md](DEMO_SCRIPT.md): 6-minute viva walkthrough
 - [VIVA_QA.md](VIVA_QA.md): expected examiner questions and answers
 - [DECISIONS.md](DECISIONS.md): shortcuts and assumptions
