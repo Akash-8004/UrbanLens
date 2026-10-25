@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import numpy as np
 
 from app.config import settings
+from iot.live import get_live
 from iot.store import insert_reading
 
 _tick = 0
@@ -23,6 +24,10 @@ def _diurnal(tick: int):
 
 
 def latest_reading():
+    """Newest reading: the real DHT11 node when it is streaming, else the simulator."""
+    live = get_live()
+    if live is not None:
+        return {**live, "lat": LAT, "lon": LON}
     global _tick
     with _lock:
         t = _tick
@@ -54,8 +59,11 @@ def history(hours: int = 24):
 def _loop():
     global _tick
     while True:
-        r = latest_reading()
-        insert_reading(r["node_id"], r["ts"], r["temp_c"], r["humidity_pct"], r["lux_proxy"], r.get("rssi", -55))
+        # Real readings are persisted by the ingest endpoint; writing simulated rows
+        # on top of them would corrupt the history chart during a hardware demo.
+        if get_live() is None:
+            r = latest_reading()
+            insert_reading(r["node_id"], r["ts"], r["temp_c"], r["humidity_pct"], r["lux_proxy"], r.get("rssi", -55))
         with _lock:
             _tick += 1
         threading.Event().wait(settings.IOT_SSE_INTERVAL_S)

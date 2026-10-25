@@ -43,9 +43,8 @@ LOCALITIES: list[dict[str, Any]] = [
 
 WESTERN_LINE_SPOTS = LOCALITIES
 
-ROAD_TEMPLATES = [
-    "SV Road junction",
-    "Link Road stretch",
+# Site descriptors that are plausible anywhere along the corridor.
+GENERIC_SITES = [
     "Station east plaza",
     "Station west exit",
     "Flyover underside",
@@ -53,13 +52,50 @@ ROAD_TEMPLATES = [
     "Market lane",
     "Industrial shed row",
     "Parking lot roof cluster",
-    "Metro shaft open cut",
     "Residential canyon block",
     "Petrol pump forecourt",
     "Railway track corridor",
     "Signal crossing",
     "Warehouse yard",
+    "Rooftop asbestos cluster",
+    "Truck layby",
+    "Open drain culvert",
+    "School ground edge",
 ]
+
+# Real arterials, listed only against the localities they actually pass through —
+# avoids labelling a Palghar spot "SV Road", which only exists in the western suburbs.
+ARTERIALS: dict[str, list[str]] = {
+    "churchgate": ["Marine Drive promenade", "Veer Nariman Road"],
+    "dadar": ["Senapati Bapat Marg", "Tilak Bridge approach"],
+    "mahim": ["SV Road junction", "Mahim Causeway"],
+    "bandra": ["SV Road junction", "Linking Road stretch", "Western Express Highway flank"],
+    "santacruz": ["SV Road junction", "Linking Road stretch", "Western Express Highway flank"],
+    "andheri_w": ["SV Road junction", "New Link Road stretch", "Juhu Circle"],
+    "andheri_e": ["Western Express Highway flank", "MIDC Road", "Chakala junction"],
+    "jogeshwari": ["SV Road junction", "JVLR stretch", "Western Express Highway flank"],
+    "goregaon": ["SV Road junction", "New Link Road stretch", "Western Express Highway flank"],
+    "malad": ["SV Road junction", "New Link Road stretch", "Marve Road"],
+    "kandivali": ["SV Road junction", "New Link Road stretch", "Akurli Road"],
+    "borivali": ["SV Road junction", "New Link Road stretch", "Western Express Highway flank"],
+    "dahisar": ["SV Road junction", "Western Express Highway flank"],
+    "mira_road": ["Mira-Bhayandar Road", "Western Express Highway flank"],
+    "bhayandar": ["Mira-Bhayandar Road", "Western Express Highway flank"],
+    "naigaon": ["Mumbai-Ahmedabad Highway flank", "Naigaon east link road"],
+    "vasai": ["Mumbai-Ahmedabad Highway flank", "Vasai-Virar link road"],
+    "nallasopara": ["Mumbai-Ahmedabad Highway flank", "Nallasopara link road"],
+    "virar": ["Mumbai-Ahmedabad Highway flank", "Agashi Road"],
+    "saphale": ["Mumbai-Ahmedabad Highway flank"],
+    "kelve": ["Mumbai-Ahmedabad Highway flank", "Kelve beach road"],
+    "palghar": ["Mumbai-Ahmedabad Highway flank", "Palghar MIDC road"],
+    "boisar": ["Tarapur MIDC road", "Boisar-Palghar road"],
+    "kurla": ["LBS Marg junction", "Eastern Express Highway flank", "BKC connector"],
+    "powai": ["JVLR stretch", "Powai lake road", "Saki Vihar Road"],
+    "chembur": ["Eastern Express Highway flank", "Sion-Panvel Highway flank", "LBS Marg junction"],
+}
+
+# Kept for backwards compatibility with earlier imports.
+ROAD_TEMPLATES = GENERIC_SITES
 
 
 def _rng(seed: int):
@@ -109,31 +145,56 @@ def _micro_footprint(lon: float, lat: float, radius_m: float, seed: int, n: int 
     return ring
 
 
+def _sample_sites(zone_id: str, n: int, rnd) -> list[str]:
+    """Pick n distinct site labels for a locality — arterials first, then generic sites.
+
+    Sampling is without replacement so two spots in the same locality can never carry
+    the same name (which previously produced rows like "Andheri East - SV Road junction"
+    twice in the street-level list).
+    """
+    pool = list(ARTERIALS.get(zone_id, [])) + list(GENERIC_SITES)
+    # Fisher-Yates with the deterministic LCG, so output stays seed-stable.
+    for i in range(len(pool) - 1, 0, -1):
+        j = int(rnd() * (i + 1)) % (i + 1)
+        pool[i], pool[j] = pool[j], pool[i]
+    if n <= len(pool):
+        return pool[:n]
+    # More spots than labels: suffix repeats so names stay unique.
+    out = []
+    for k in range(n):
+        label = pool[k % len(pool)]
+        out.append(label if k < len(pool) else f"{label} {k // len(pool) + 1}")
+    return out
+
+
 def generate_micro_hotspots(per_locality: int = 8) -> list[dict[str, Any]]:
     spots: list[dict[str, Any]] = []
     for loc in LOCALITIES:
         rnd = _rng(_hash(loc["zone_id"]))
         n = per_locality + (2 if loc["zone_id"] in ("kurla", "andheri_e", "goregaon", "dadar") else 0)
         n = min(12, n)
+        sites = _sample_sites(loc["zone_id"], n, rnd)
         for k in range(n):
             along = (rnd() - 0.5) * 900
             across = (rnd() - 0.5) * 420
             if rnd() < 0.35:
                 across *= 0.25
             lon, lat = _offset_m(loc["lat"], loc["lon"], across, along)
-            peak = 40.5 + rnd() * 10.5
+            # Street-level asphalt runs hotter than the ~340 m grid cell mean, but stays
+            # below 50.5 so values do not pile up on a clipping ceiling.
+            peak = 38.0 + rnd() * 9.5
             if loc["zone_id"] in ("kurla", "andheri_e", "goregaon"):
-                peak += 1.8
-            peak = round(min(52.0, peak), 2)
+                peak += 1.6
+            peak = round(min(50.5, peak), 2)
             cls = class_from_peak(peak)
-            road = ROAD_TEMPLATES[int(rnd() * len(ROAD_TEMPLATES)) % len(ROAD_TEMPLATES)]
+            road = sites[k]
             radius_m = 55 + cls * 28 + rnd() * 40
             intensity = round(0.35 + 0.65 * (peak - 40) / 12, 3)
             sid = f"hs_{loc['zone_id']}_{k}"
             spots.append({
                 "id": sid,
                 "zone_id": loc["zone_id"],
-                "name": f"{loc['name']} - {road}",
+                "name": f"{loc['name']} · {road}",
                 "locality": loc["name"],
                 "road": road,
                 "class": cls,

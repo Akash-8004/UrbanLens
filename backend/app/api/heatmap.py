@@ -64,7 +64,7 @@ def get_heatmap(layer: str = "heat_stress"):
         "hotspots_geojson": hotspots_geojson,
         "buildings_geojson": buildings,
         "iot_node": {"lat": 19.07, "lon": 72.88, "node_id": "node1"},
-        "study_label": "Mumbai · Andheri–Kurla corridor",
+        "study_label": "Mumbai · Western Line corridor (Churchgate–Boisar)",
         "nation_center": [78.96, 22.5],
     }
 

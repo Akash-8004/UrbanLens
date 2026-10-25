@@ -3,12 +3,6 @@ from pipeline.stage1_ingest.synthetic_city import generate_city
 
 
 def load_city_data(source: str | None = None) -> dict:
-    src = source or ("synthetic" if settings.DEMO_MODE else "auto")
-    if src == "synthetic" or settings.DEMO_MODE:
-        return generate_city(settings.SEED)
-    for fn in ("landsat", "sentinel2"):
-        try:
-            pass  # real path would merge adapters
-        except Exception:
-            pass
+    # Real adapters (landsat/sentinel2/era5) are stubs for now, so every path
+    # falls back to the seeded synthetic city.
     return generate_city(settings.SEED)

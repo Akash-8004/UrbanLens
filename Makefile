@@ -1,4 +1,4 @@
-.PHONY: setup artifacts dev reset test
+.PHONY: setup artifacts dev reset test bridge
 
 setup:
 	python -m pip install -r backend/requirements.txt
@@ -14,3 +14,6 @@ reset:
 
 test:
 	cd backend && python -m pytest tests -q
+
+bridge:
+	cd backend && python -m iot.serial_bridge

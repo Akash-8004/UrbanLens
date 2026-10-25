@@ -23,9 +23,11 @@ def _blur(a, sigma=2):
 # Absolute lon/lat stations (fractional unused — kept for tuple shape compatibility)
 ZONES = [(s["zone_id"], s["name"], s["lon"], s["lat"]) for s in WESTERN_LINE_SPOTS]
 
-# West-facing Arabian Sea coastline control points (south → north toward Palghar)
-COAST_LON = np.array([72.70, 72.75, 72.78, 72.80, 72.82, 72.84, 72.86, 72.88, 72.90])
-COAST_LAT = np.array([19.85, 19.70, 19.55, 19.40, 19.25, 19.10, 18.98, 18.92, 18.88])
+# West-facing Arabian Sea coastline control points, ordered south → north.
+# Everything west (lower lon) of this curve is sea. Values track the real shoreline:
+# the island city sits around lon 72.81-72.83, and the coast recedes west toward Palghar.
+COAST_LAT = np.array([18.88, 18.93, 19.02, 19.05, 19.07, 19.12, 19.20, 19.28, 19.40, 19.55, 19.70, 19.85])
+COAST_LON = np.array([72.800, 72.812, 72.830, 72.822, 72.815, 72.818, 72.800, 72.780, 72.760, 72.720, 72.700, 72.690])
 
 
 def _noise(h, w, seed, octaves=4):
@@ -45,16 +47,9 @@ def _noise(h, w, seed, octaves=4):
 
 
 def _land_mask(lons, lats):
-    mask = np.ones(lons.shape, dtype=bool)
-    for j in range(lons.shape[1]):
-        lat_coast = np.interp(lons[0, j], COAST_LON, COAST_LAT)
-        # west of coastline ≈ sea for this parametric curve
-        mask[:, j] = lons[:, j] >= (COAST_LON[0] + 0.02)  # coarse land east of coast strip
-        # refine: points west of interpolated coast lon at that lat are water
-    # Better: for each cell, coast_lon at this lat
-    coast_at_lat = np.interp(lats, COAST_LAT[::-1], COAST_LON[::-1])
-    mask = lons >= coast_at_lat - 0.01
-    return mask
+    """Land is everything east of the interpolated shoreline at that latitude."""
+    coast_at_lat = np.interp(lats, COAST_LAT, COAST_LON)
+    return lons >= coast_at_lat
 
 
 def _zone_id(lons, lats):
@@ -79,32 +74,44 @@ def generate_city(seed: int | None = None) -> dict:
     corridor = np.exp(-((lons - 72.84) ** 2 / 0.0018 + ((lats - 19.25) / 0.55) ** 2 / 0.35))
     # denser south (island city) + Mira-Bhayandar / Vasai pockets
     south = np.exp(-((lats - 19.05) ** 2 / 0.015))
-    urban = np.clip(0.25 * urban + 0.55 * corridor + 0.25 * south * corridor, 0, 1)
+    # Dense commercial cores at the station nodes — the real heat islands sit here.
+    cores = np.zeros((h, w))
+    for _, _, lon_c, lat_c in ZONES:
+        cores = np.maximum(cores, np.exp(-(((lons - lon_c) / 0.016) ** 2 + ((lats - lat_c) / 0.016) ** 2)))
+    urban = np.clip(0.20 * urban + 0.42 * corridor + 0.18 * south * corridor + 0.52 * cores, 0, 1)
     parks = _blur(_noise(h, w, seed + 1), 8)
     parks = (parks > 0.74).astype(float) * 0.85
     water = (~land).astype(float)
-    ndvi = np.clip(0.15 + 0.55 * parks - 0.35 * urban, -0.2, 0.85)
+    # Land cover is driven by the urban field so that rural/park cells read as genuinely
+    # vegetated (high NDVI, low impervious) rather than sitting on a built-up baseline.
+    # Each band carries its own noise term, otherwise every channel is a perfect linear
+    # function of `urban` and the correlation matrix degenerates to ±1.00 everywhere,
+    # which makes SHAP attribution arbitrary.
+    ndvi = np.clip(0.62 - 0.72 * urban + 0.22 * parks + 0.13 * (_noise(h, w, seed + 11) - 0.5), -0.1, 0.88)
     ndvi[water > 0.5] = 0.05
-    ndbi = np.clip(0.1 + 0.55 * urban - 0.25 * parks, -0.5, 0.6)
+    ndbi = np.clip(-0.22 + 0.72 * urban - 0.18 * parks + 0.11 * (_noise(h, w, seed + 12) - 0.5), -0.5, 0.55)
     mndwi = np.clip(0.4 * water - 0.2 * urban, -1, 1)
-    imperv = np.clip(30 + 65 * urban - 20 * parks, 0, 100)
-    bld_d = np.clip(urban * 0.9, 0, 1)
+    imperv = np.clip(4 + 92 * urban - 25 * parks + 16 * (_noise(h, w, seed + 13) - 0.5), 0, 100)
+    bld_d = np.clip(urban * 0.9 + 0.10 * (_noise(h, w, seed + 15) - 0.5), 0, 1)
     height = np.clip(3 + 42 * (urban**1.3), 0, 45)
-    svf = np.clip(0.35 + 0.55 * (1 - bld_d) + 0.1 * parks, 0.3, 1.0)
+    svf = np.clip(0.35 + 0.55 * (1 - bld_d) + 0.1 * parks + 0.12 * (_noise(h, w, seed + 14) - 0.5), 0.25, 1.0)
     era5_t = 30 + 2 * _blur(_noise(h, w, seed + 2), 12)
     era5_h = np.clip(75 - 15 * urban + 5 * water * 100, 40, 95)
     era5_w = np.clip(2 + 3 * (1 - urban) + _blur(_noise(h, w, seed + 3), 6), 0.5, 8)
     rn = np.clip(450 + 180 * (1 - ndvi) + 80 * ndbi - 60 * svf, 200, 750)
+    # Calibrated so parks/mangroves land near 28-32 °C and dense built-up near 44-48 °C,
+    # which is the range Landsat reports for Mumbai. The previous coefficients put the
+    # coolest pixel in the city at ~43 °C.
     lst = (
-        31
-        + 8 * (1 - ndvi)
-        + 0.06 * imperv
-        + 6 * (1 - svf)
-        + 0.15 * (100 - era5_h)
-        - 0.4 * era5_w
-        + _blur(_noise(h, w, seed + 4), 3) * 2
+        26
+        + 10 * (1 - ndvi)
+        + 0.07 * imperv
+        + 5 * (1 - svf)
+        + 0.05 * (100 - era5_h)
+        - 0.35 * era5_w
+        + _blur(_noise(h, w, seed + 4), 3) * 1.5
     )
-    lst = np.clip(lst, 29, 52)
+    lst = np.clip(lst, 26, 52)
     for arr in (ndvi, ndbi, lst, imperv, svf):
         arr[~land] = np.nan
     zmap = _zone_id(lons, lats)
