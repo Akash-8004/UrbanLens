@@ -14,11 +14,14 @@ The 3-pin DHT11 module has its pull-up resistor built onto the board, so the sen
 connects directly. Use male-to-female jumpers: female end onto the module pins, male
 end into the ESP32 header (or the breadboard row the ESP32 sits in).
 
-| DHT11 module pin | Goes to ESP32 pin | Wire |
+Identify each module pin by its **printed label**, not by position. Pin order differs
+between modules — on some the middle pin is power, on others it is data.
+
+| Module pin label | What it is | Goes to ESP32 pin |
 |---|---|---|
-| `VCC` / `+` / `3.3V` | `3V3` | red |
-| `DATA` / `OUT` / `S` | `GPIO 4` (labelled `D4`) | yellow |
-| `GND` / `-` | `GND` | black |
+| `+`, `VCC`, `3.3V`, `5V` | power | `3V3` |
+| `S`, `OUT`, `DATA`, `DAT`, `SIG` | data | `GPIO 4` (may be printed `D4` or `IO4`) |
+| `-`, `G`, `GND` | ground | any `GND` |
 
 ```
   DHT11 module                 ESP32 (ESP-WROOM-32)
@@ -31,13 +34,15 @@ end into the ESP32 header (or the breadboard row the ESP32 sits in).
      +------------------ red ------+
 ```
 
+The breadboard is required, not optional: the ESP32 and the DHT11 module both have
+male header pins, so male-to-female jumpers cannot join them directly. Seat the DHT11
+module in the breadboard, then run each jumper's male end into the same breadboard
+column as a module pin and its female end onto the matching ESP32 pin.
+
 Checks before powering up:
-- **Use `3V3`, not `5V`.** The module is rated for 3.3 V on the ESP32 and the data
-  line must not exceed the ESP32's 3.3 V logic level.
-- Confirm the middle pin really is data — some modules order the pins
-  `GND / DATA / VCC`. **Read the silkscreen on your module**, don't assume.
-- If the ESP32 straddles the breadboard and covers every free row, skip the
-  breadboard and plug the female jumper ends straight onto the ESP32 header pins.
+- **Use `3V3`, not `5V`.** The data line must not exceed the ESP32's 3.3 V logic level.
+- **Wire by label, never by pin order.** Putting power into a GPIO can destroy the pin.
+- Unplug the USB cable while wiring.
 
 ---
 
