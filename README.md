@@ -1,6 +1,10 @@
 # UrbanLens
 
-A geospatial AI prototype for urban heat. It detects heat islands, explains what drives them (SHAP), forecasts heat 48 hours ahead, recommends cooling interventions (NSGA-II), and checks results against IoT ground truth. It runs fully offline on a seeded synthetic model of Mumbai's Western Line corridor, from South Mumbai to Palghar.
+A geospatial AI prototype for urban heat. It detects heat islands, explains what drives them (SHAP), forecasts heat 48 hours ahead, recommends cooling interventions (NSGA-II), and checks results against IoT ground truth from a physical sensor node.
+
+The geospatial layers run fully offline on a seeded synthetic model of Mumbai's Western
+Line corridor (South Mumbai to Palghar). The ground-truth feed is **real hardware**: an
+ESP32 + DHT11 node streaming live air temperature and relative humidity.
 
 **SJCEM · B.Tech IT · Final Year Major Project**
 
@@ -11,6 +15,7 @@ A geospatial AI prototype for urban heat. It detects heat islands, explains what
 - [Requirements](#requirements)
 - [Quickstart](#quickstart)
 - [Configuration](#configuration)
+- [IoT hardware node](#iot-hardware-node)
 - [Prototype status](#prototype-status)
 - [Architecture](#architecture)
 - [Project layout](#project-layout)
@@ -29,6 +34,17 @@ A geospatial AI prototype for urban heat. It detects heat islands, explains what
 | Python | 3.11 or newer |
 | Node.js | 18 or newer (with npm) |
 | make | Optional. On Windows, use the commands written out below. |
+
+For the live sensor node (optional — the app runs without it):
+
+| Item | Notes |
+|---|---|
+| ESP32 dev board (ESP-WROOM-32) | Any CP2102 or CH340 variant |
+| DHT11 temperature + humidity module | 3-pin version, pull-up built in |
+| 400-point breadboard, 3 male-to-female jumpers | Breadboard is required, not optional — both devices have male pins |
+| Micro-USB **data** cable | A charge-only cable powers the board but never appears as a COM port |
+| Arduino IDE 2.x + ESP32 board package + Adafruit `DHT sensor library` | Flashing toolchain |
+| CP210x (or CH340) USB-serial driver | Without it the board shows device error code 28 and no COM port |
 
 ---
 
@@ -70,7 +86,8 @@ npm run dev
 | http://localhost:8000/docs | Interactive API docs (Swagger) |
 | http://localhost:8000/api/health | Health check |
 
-> The ESP32 sensor simulator starts automatically with the API, so you don't need a separate process for the Sensors page.
+> A built-in simulator starts with the API, so the Sensors page works with no hardware
+> attached. To stream the real node instead, see [IoT hardware node](#iot-hardware-node).
 
 ### Optional heavy extras
 
@@ -101,23 +118,96 @@ After changing `SEED`, the grid or the bbox, rebuild the artifacts (`make reset 
 
 ---
 
+## IoT hardware node
+
+A physical ESP32 + DHT11 node supplies the ground-truth feed. It measures **two real
+quantities** — air temperature and relative humidity — both of which the heat
+classifier consumes as features (`era5_temp`, `era5_humidity`).
+
+Full wiring, flashing and demo instructions: **[HARDWARE_DEMO.md](HARDWARE_DEMO.md)**.
+
+### Wiring
+
+Identify module pins by their **printed label**, never by position — pin order differs
+between modules.
+
+| DHT11 module label | Role | ESP32 pin |
+|---|---|---|
+| `+` / `VCC` | power | `3V3` (**not** `5V`) |
+| `S` / `OUT` / `DATA` | data | `GPIO 4` |
+| `-` / `GND` | ground | any `GND` |
+
+### Running it
+
+```bash
+# Terminal A — API
+python scripts/dev.py
+
+# Terminal B — serial bridge (ESP32 -> API)
+cd backend
+python -m iot.serial_bridge          # auto-detects the port; --list to see candidates
+
+# Terminal C — dashboard
+cd frontend && npm run dev
+```
+
+The Sensors page then shows a green **LIVE HARDWARE · ESP32 + DHT11** badge. Close the
+Arduino Serial Monitor first — only one process can hold the COM port.
+
+### How the two transports work
+
+Both post to the same endpoint, so the backend does not care which is used:
+
+```
+ESP32 --USB serial--> iot/serial_bridge.py --HTTP--> POST /api/iot/ingest
+ESP32 --WiFi-------------------------------HTTP--> POST /api/iot/ingest
+```
+
+- **Serial** ([hardware/urbanlens_node_serial/](hardware/urbanlens_node_serial/urbanlens_node_serial.ino)) — no network dependency. Use this for graded demos.
+- **WiFi** ([hardware/urbanlens_node_wifi/](hardware/urbanlens_node_wifi/urbanlens_node_wifi.ino)) — no host process, but needs the laptop's LAN IP and `uvicorn --host 0.0.0.0`.
+- **MQTT** ([backend/iot/mqtt_subscriber.py](backend/iot/mqtt_subscriber.py)) — third option, needs `paho-mqtt` and a broker.
+
+### Simulator fallback
+
+`GET /api/iot/status` reports which source is live. If no hardware reading arrives for
+30 seconds (`LIVE_TTL_S` in [backend/iot/live.py](backend/iot/live.py)), the API reverts
+to the simulator and the UI badge turns amber. Unplugging the board mid-demo degrades
+gracefully instead of breaking the page. While hardware is live the simulator stops
+writing to the database, so the history chart holds only real readings.
+
+### Known gaps, stated plainly
+
+- **One node, not a network.** It validates the pipeline end to end; spatial coverage
+  would need many nodes.
+- **No light sensor.** There is no LDR, so `lux_proxy` is reported as `null` rather than
+  fabricated. The ingest endpoint already accepts the field.
+- **DHT11 accuracy is ±2 °C / ±5 % RH** at 1-unit resolution. It is a teaching-grade
+  part; the architecture is the contribution, not the sensor.
+- **Air temperature is not land surface temperature.** The node measures air temp while
+  the satellite layer models LST, which is why the Sensors page shows a bias comparison
+  rather than expecting the two to agree.
+
+---
+
 ## Prototype status
 
 This table shows what is real and what is simulated.
 
 | Layer | What runs | Status |
 |---|---|---|
-| Data | Seeded synthetic Mumbai corridor (140×100 grid, ~2900 km² land) | **Synthetic / demo** |
+| Geospatial data | Seeded synthetic Mumbai corridor (140×100 grid, ~2900 km² land) | **Synthetic / demo** |
 | Heat map | `HistGradientBoostingClassifier` (4 classes from LST percentiles) | Real sklearn model |
 | U-Net / Bi-LSTM | Optional `torch` extras | Stubbed if torch is absent |
 | PINN | Pure-NumPy MLP + energy-balance residual | Real ablation metrics |
 | SHAP | `TreeExplainer` on the classifier | Real attributions |
 | Forecast | Lag-feature regressor with prediction-interval bands | Real sklearn model |
 | Optimizer | pymoo NSGA-II, knee-point plans | Real multi-objective optimisation |
-| IoT | Real ESP32 + DHT11 via USB serial or WiFi → SSE stream | **Real hardware**, simulator fallback |
+| IoT ground truth | ESP32 + DHT11 node → serial bridge or WiFi → SSE stream | **Real hardware** (temp + humidity), simulator fallback |
 | Satellite adapters | Landsat / Sentinel-2 / ERA5 / OSM modules | Stubs; fall back to synthetic |
 
-The API tags every synthetic source in its provenance data, and the UI labels it **SYNTHETIC / DEMO DATA**.
+The API tags every synthetic source in its provenance data, and the UI labels it
+**SYNTHETIC / DEMO DATA**. The IoT feed is the one layer backed by physical measurement;
+`GET /api/iot/status` reports whether the node or the simulator is currently live.
 
 ---
 
@@ -137,7 +227,11 @@ The API tags every synthetic source in its provenance data, and the UI labels it
                                    ▼
              FastAPI (/api/*)  ──►  React + MapLibre dashboard
                    ▲
-          ESP32 simulator / MQTT
+                   │  POST /api/iot/ingest
+       ┌───────────┴────────────┐
+   ESP32 + DHT11            simulator
+   (serial bridge /         (fallback after
+    WiFi / MQTT)             30 s of silence)
 ```
 
 `python -m pipeline.build_artifacts` runs all four stages once and writes the results to `backend/.artifacts/`. The API only serves those precomputed files and never retrains on a request. The one exception is `/api/interventions/optimize`, which runs NSGA-II on demand.
@@ -151,7 +245,8 @@ backend/
   app/            FastAPI app: config, routers (api/), core helpers, schemas
   pipeline/       stage1_ingest → stage2_features → stage3_models → stage4_optimizer
                   build_artifacts.py — one-shot builder
-  iot/            ESP32 simulator, MicroPython firmware, MQTT subscriber, SQLite store
+  iot/            live.py (hardware store), serial_bridge.py (USB -> API),
+                  simulator, MQTT subscriber, SQLite store
   exports/        PDF report and GeoTIFF writers
   tests/          pytest suite
 frontend/
@@ -159,6 +254,7 @@ frontend/
   src/components/ map, charts, sensors, layout, ui
   src/lib/api.ts  API client
   src/store/      zustand stores
+hardware/         Arduino sketches: urbanlens_node_serial/ (demo), urbanlens_node_wifi/
 scripts/          dev.py (run API), seed_demo.py (build artifacts)
 data/             raw/ (real data drop zone), iot/ (readings.db), notes/
 ```
@@ -218,6 +314,17 @@ All routes have the `/api` prefix. Full schemas are at `/docs`.
 - **`ModuleNotFoundError: app` / `pipeline`**: run backend commands from inside `backend/`, or use the scripts in `scripts/`, which set `PYTHONPATH` for you.
 - **Dashboard loads but API calls fail**: make sure the API is on port 8000. The Vite proxy in [frontend/vite.config.ts](frontend/vite.config.ts) expects it there.
 - **CORS errors when serving the UI from another origin**: add that origin to `CORS_ORIGINS` in `.env`.
+
+Hardware node:
+
+- **No COM port appears**: charge-only USB cable (try another), or the USB-serial driver
+  is missing. Device error code 28 means no driver — install the CP210x or CH340 driver.
+- **Bridge reports `Access is denied`**: the Arduino Serial Monitor still holds the port. Close it.
+- **Board prints `# read failed`**: the data wire is not on `GPIO 4`, a jumper is loose,
+  or the module was wired to `5V`.
+- **Badge stays amber while the bridge prints readings**: hard-refresh the browser (Ctrl+Shift+R).
+- **Restarting the bridge resets the sequence counter**: expected — opening the serial
+  port reboots the ESP32. Start the bridge once and leave it running.
 
 ---
 
